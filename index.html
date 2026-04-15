@@ -218,66 +218,40 @@ main{display:grid;grid-template-columns:1fr 300px;height:calc(100vh - 57px);}
   header{padding:10px 14px;min-height:auto;}
   .logo{font-size:11px;}
   .hbtn{font-size:10px;padding:4px 9px;}
-  .sync-status{max-width:80px;}
-  main{grid-template-columns:1fr;height:auto;padding-bottom:68px;}
-  .day-panel{padding:12px 10px;border-right:none;}
-  .sidebar{padding:14px 12px;border-top:1px solid var(--border);display:none;}
+  .sync-status{max-width:90px;}
+  main{grid-template-columns:1fr;height:auto;padding-bottom:64px;}
+  .day-panel{padding:14px 14px;border-right:none;}
+  .sidebar{padding:14px 14px;border-top:1px solid var(--border);display:none;}
   .sidebar.mobile-visible{display:flex;}
   .mobile-tabs{display:block;}
-
-  /* Compact blocks for mobile */
-  .time-block{margin-bottom:6px;min-height:52px;}
-  .tb-time{width:60px;min-width:60px;padding:8px 5px;}
-  .tb-time-from{font-size:11px;}
-  .tb-time-to{font-size:10px;}
-  .tb-cat-bar{width:3px;min-width:3px;}
-  .tb-content{padding:8px 8px;}
-
-  /* Single row layout on mobile: check + title + actions all in one line */
-  .tb-main{flex-wrap:nowrap;gap:6px;align-items:center;}
-  .tb-check{width:20px;height:20px;flex-shrink:0;}
-  .tb-text{flex:1;min-width:0;}
-  .tb-title{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-  .tb-meta{font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-
-  /* Actions always visible, compact */
-  .tb-actions{opacity:1;flex-wrap:nowrap;gap:3px;}
-  .abtn{font-size:10px;padding:3px 7px;white-space:nowrap;}
-
-  /* Fam block compact */
-  .fam-block{min-height:36px;}
-  .fam-block .tb-title{font-size:11px;}
-  .fam-block .tb-meta{font-size:10px;}
-
-  /* Note area */
-  .note-area{padding:6px 0 2px;}
-  .note-textarea{font-size:14px;-webkit-text-size-adjust:100%;}
-
-  /* Chat popup slides up from bottom */
-  .chat-popup{bottom:68px;right:0;left:0;width:100%;max-width:100%;border-radius:12px 12px 0 0;height:72vh;}
-  .chat-msg{font-size:14px;}
-  .chat-input{font-size:16px;} /* 16px prevents iOS zoom */
-
-  /* Modals slide up */
-  .modal{width:100%;max-width:100%;border-radius:12px 12px 0 0;position:fixed;bottom:0;left:0;right:0;margin:0;max-height:82vh;}
+  /* Larger tap targets on mobile */
+  .time-block{margin-bottom:7px;}
+  .tb-time{width:70px;min-width:70px;padding:10px 6px;}
+  .tb-time-from{font-size:12px;}
+  .tb-time-to{font-size:11px;}
+  .tb-title{font-size:14px;}
+  .tb-meta{font-size:11px;}
+  .tb-check{width:22px;height:22px;font-size:12px;}
+  /* Always show actions on mobile (no hover) */
+  .tb-actions{opacity:1;}
+  .abtn{font-size:11px;padding:4px 9px;}
+  /* Chat popup full screen on mobile */
+  .chat-popup{bottom:64px;right:0;left:0;width:100%;max-width:100%;border-radius:12px 12px 0 0;height:70vh;}
+  .chat-fab{bottom:74px;right:16px;width:44px;height:44px;}
+  /* Modal full width */
+  .modal{width:100%;max-width:100%;border-radius:12px 12px 0 0;position:fixed;bottom:0;left:0;right:0;margin:0;max-height:80vh;}
   .modal-bg.open{align-items:flex-end;}
-
-  /* Day header */
-  .day-title{font-size:16px;}
-  .day-date{font-size:11px;}
-  .day-skip-btn{font-size:10px;padding:4px 9px;}
-
-  /* Warn banner */
-  .warn-banner{font-size:12px;padding:8px 10px;}
-
-  /* Week grid */
+  /* Week grid larger */
   .wc .wp{font-size:13px;}
   .wc .wd{font-size:10px;}
-
+  /* Skip/warn banners */
+  .warn-banner{font-size:13px;}
+  .day-title{font-size:16px;}
+  .day-date{font-size:11px;}
   /* Auth card */
-  .auth-card{width:92%;padding:24px 18px;}
-  .auth-title{font-size:16px;}
-  .auth-sub{font-size:13px;}
+  .auth-card{width:90%;padding:24px 20px;}
+  /* Note textarea */
+  .note-textarea{font-size:14px;}
 }
 </style>
 </head>
@@ -458,6 +432,7 @@ let syncPending=false;
 let currentDay=DAYS.includes(todayName())?todayName():'Mon';
 let openNotes={};
 let vacSplits={ai:40,en:20,de:20,proj:20};
+let chatHistory=[];
 let chatOpen=false;
 
 // ── HELPERS ─────────────────────────────────────────────────────
@@ -696,49 +671,62 @@ function getAllNotes(){
   });
   return notes;
 }
-
-function buildContextText(){
+function buildContext(){
   const notes=getAllNotes();
   const weekStats=Object.keys(CATS).map(cat=>{
     let t=0,d=0;
     DAYS.forEach(day=>{const data=getDayData(day);if(data['_skip']?.skipped)return;getSchedule(day).filter(b=>b.cat===cat).forEach(b=>{t++;if(data[b.id]==='done')d++;});});
-    return CATS[cat].label+': '+(t?Math.round(d/t*100):0)+'%';
+    return`${CATS[cat].label}: ${t?Math.round(d/t*100):0}%`;
   }).join(', ');
-  const notesText=notes.length?'\n\nMy learning notes this week:\n'+notes.map(n=>'['+n.day+' - '+n.block+']: '+n.note).join('\n'):'';
-  return 'Context: I am a BI support specialist in Hungary, 4 years data replication/BI at HCLTech, transitioning to AI/Data Engineering. At risk of being let go, leadership pushing toward AI.\n\nWeekly schedule: English (1h/day AI tutor), AI learning (theory + hands-on Python/LLM APIs), Databricks/DE (PySpark, Delta Lake, MLflow), Pet project (Hungarian football app).\n\nThis week completion: '+weekStats+notesText+'\n\n';
+  const notesText=notes.length?notes.map(n=>`[${n.day} - ${n.block}]: ${n.note}`).join('\n'):'No notes yet.';
+  return`You are a learning assistant for a BI support specialist in Hungary transitioning to AI/Data Engineering.
+Current day: ${currentDay}. Week: ${getWeekId()}.
+Completion this week: ${weekStats}
+Learning notes:\n${notesText}
+Categories: English (daily 1h, AI tutor), AI learning (theory + hands-on Python/LLM), Databricks/DE (PySpark, Delta Lake, MLflow), Pet project (Hungarian football app).
+Background: 4 years BI/data replication, HCLTech, Databricks experience. Goal: become relevant in AI+DE. At risk of being let go in coming months.
+Be encouraging, specific, concise (3-5 sentences). Suggest concrete resources/topics when relevant.`;
 }
-
-function openInClaude(userMsg){
-  const full=buildContextText()+'My question: '+userMsg;
-  window.open('https://claude.ai/new?q='+encodeURIComponent(full),'_blank');
-}
-
 function toggleChat(){
   chatOpen=!chatOpen;
   document.getElementById('chatPopup').classList.toggle('open',chatOpen);
-  if(chatOpen&&document.getElementById('chatMsgs').children.length===0){
-    addChatMsg('assistant','Tap a button below or type a question — it opens Claude with your full weekly context pre-loaded.');
+  if(chatOpen&&chatHistory.length===0){
+    addChatMsg('assistant','Hi! I can see your schedule and notes. Ask me to plan tomorrow, suggest what to study next, or review your week.');
     renderQuickBtns();
   }
 }
 function renderQuickBtns(){
   const btns=[
-    {label:'Plan tomorrow',msg:'Based on my progress and notes this week, give me a specific learning plan for tomorrow.'},
-    {label:'Next AI topic',msg:'What specific AI topic should I study next? Give me a concrete recommendation with a resource.'},
-    {label:'Next DE topic',msg:'What specific Databricks or DE topic should I focus on next?'},
-    {label:'Weekly review',msg:'Review my week — what went well, what I missed, and what to prioritise next week.'},
+    {label:'Plan tomorrow',msg:'Based on my notes and progress, what should I focus on tomorrow? Give a specific plan for each block.'},
+    {label:'Next AI topic',msg:'What specific AI topic should I study next based on where I am?'},
+    {label:'Next DE topic',msg:'What Databricks or DE topic should I focus on next?'},
+    {label:'Weekly review',msg:'Review my week — what went well, what I missed, what needs attention next week?'},
   ];
-  document.getElementById('quickBtns').innerHTML=btns.map(b=>'<button class="qbtn" onclick="openInClaude(decodeURIComponent(''+encodeURIComponent(b.msg)+''))">'+b.label+' ↗</button>').join('');
+  document.getElementById('quickBtns').innerHTML=btns.map(b=>`<button class="qbtn" onclick="sendQuick('${b.msg.replace(/'/g,"&#39;")}')">${b.label}</button>`).join('');
 }
 function addChatMsg(role,text){
   const msgs=document.getElementById('chatMsgs');
-  const div=document.createElement('div');div.className='chat-msg '+role;div.textContent=text;
+  const div=document.createElement('div');div.className=`chat-msg ${role}`;div.textContent=text;
   msgs.appendChild(div);msgs.scrollTop=msgs.scrollHeight;return div;
 }
-function sendChat(){
+async function sendQuick(msg){document.getElementById('chatInput').value=msg;await sendChat();}
+async function sendChat(){
   const inp=document.getElementById('chatInput');const text=inp.value.trim();if(!text)return;
   inp.value='';inp.style.height='auto';
-  openInClaude(text);
+  addChatMsg('user',text);chatHistory.push({role:'user',content:text});
+  const thinking=addChatMsg('assistant','…');thinking.classList.add('thinking');
+  try{
+    const res=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,system:buildContext(),messages:chatHistory})
+    });
+    const data=await res.json();
+    const reply=data.content?.find(c=>c.type==='text')?.text||'No response.';
+    thinking.textContent=reply;thinking.classList.remove('thinking');
+    chatHistory.push({role:'assistant',content:reply});
+    if(chatHistory.length>20)chatHistory=chatHistory.slice(-20);
+  }catch(e){thinking.textContent='Could not connect.';thinking.classList.remove('thinking');}
+  renderQuickBtns();
 }
 function chatKeydown(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendChat();}}
 function autoResize(el){el.style.height='auto';el.style.height=Math.min(el.scrollHeight,100)+'px';}
@@ -963,7 +951,7 @@ function mobileSwitchTab(tab){
     dayPanel.style.display='';
     sidebar.classList.remove('mobile-visible');
     chatOpen=true;document.getElementById('chatPopup').classList.add('open');
-    if(document.getElementById('chatMsgs').children.length===0){addChatMsg('assistant','Tap a button below or type a question — it opens Claude with your full weekly context pre-loaded.');renderQuickBtns();}
+    if(chatHistory.length===0){addChatMsg('assistant','Hi! Ask me to plan tomorrow, suggest what to study, or review your week.');renderQuickBtns();}
   } else if(tab==='more'){
     dayPanel.style.display='none';
     sidebar.classList.remove('mobile-visible');
