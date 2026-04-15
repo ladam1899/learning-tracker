@@ -1,0 +1,867 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Learning Tracker</title>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,400;0,500;1,400&family=DM+Sans:wght@300;400;500;600&display=swap');
+:root{
+  --bg:#0f0f0f;--surface:#1a1a1a;--surface2:#222;--border:#2e2e2e;
+  --text:#e8e4dc;--muted:#666;--dimmed:#444;
+  --ai:#4e9eff;--ai-dim:#1a3655;
+  --en:#52d68a;--en-dim:#193326;
+  --de:#f0a04b;--de-dim:#3d2910;
+  --proj:#c084fc;--proj-dim:#2d1a45;
+  --fam:#fb7185;--fam-dim:#3d1520;
+  --warn:#f59e0b;--skip:#888;--r:8px;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow:hidden;}
+
+header{padding:16px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;height:57px;}
+.logo{font-family:'DM Mono',monospace;font-size:12px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;}
+.logo span{color:var(--text);}
+.header-right{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+.hbtn{font-family:'DM Mono',monospace;font-size:11px;padding:5px 11px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;letter-spacing:.04em;transition:all .15s;white-space:nowrap;}
+.hbtn:hover{color:var(--text);border-color:#555;}
+.hbtn.accent{border-color:#1a3655;color:var(--ai);}
+.hbtn.accent:hover{background:var(--ai-dim);}
+.hbtn.vac{border-color:#2d1a45;color:var(--proj);}
+.hbtn.vac:hover{background:var(--proj-dim);}
+
+/* Sync status */
+.sync-status{display:flex;align-items:center;gap:5px;font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);padding:4px 8px;border-radius:4px;border:1px solid var(--border);}
+.sync-dot{width:6px;height:6px;border-radius:50%;background:var(--dimmed);flex-shrink:0;transition:background .3s;}
+.sync-dot.connected{background:var(--en);}
+.sync-dot.syncing{background:var(--warn);animation:pulse 1s infinite;}
+.sync-dot.error{background:var(--fam);}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+.nav-days{display:flex;gap:3px;}
+.nav-day{font-family:'DM Mono',monospace;font-size:11px;padding:5px 11px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;transition:all .15s;letter-spacing:.05em;position:relative;}
+.nav-day:hover{border-color:var(--dimmed);color:var(--text);}
+.nav-day.active{background:var(--surface2);border-color:#555;color:var(--text);}
+.nav-day.has-warn{border-color:#5a3e00;color:var(--warn);}
+.nav-day.is-skip{border-color:#333;color:var(--skip);text-decoration:line-through;}
+.nav-day.is-today::after{content:'';position:absolute;bottom:3px;left:50%;transform:translateX(-50%);width:4px;height:4px;border-radius:50%;background:var(--en);}
+
+main{display:grid;grid-template-columns:1fr 300px;height:calc(100vh - 57px);}
+.day-panel{padding:20px 24px;overflow-y:auto;border-right:1px solid var(--border);}
+.sidebar{padding:20px 18px;overflow-y:auto;display:flex;flex-direction:column;gap:20px;}
+
+.day-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;}
+.day-title-row{display:flex;align-items:baseline;gap:10px;}
+.day-title{font-size:18px;font-weight:600;letter-spacing:-.02em;}
+.day-date{font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);}
+.day-prog-bar{height:2px;background:var(--border);border-radius:2px;margin-bottom:16px;overflow:hidden;}
+.day-prog-fill{height:100%;border-radius:2px;transition:width .4s ease;}
+
+.time-block{display:flex;gap:0;margin-bottom:5px;border-radius:var(--r);overflow:hidden;border:1px solid var(--border);background:var(--surface);transition:border-color .15s;}
+.time-block:hover{border-color:#3a3a3a;}
+.time-block.done{opacity:.5;}
+.time-block.missed{border-color:#2a1a1a;background:#140d0d;}
+.time-block.fam-block{border-color:#1e1218;background:#110b0e;opacity:.45;cursor:default;}
+.time-block.has-note{border-color:#2a2a3a;}
+.tb-time{width:82px;min-width:82px;padding:9px 7px;display:flex;flex-direction:column;align-items:flex-end;justify-content:center;border-right:1px solid var(--border);}
+.tb-time-from{font-family:'DM Mono',monospace;font-size:11px;font-weight:500;color:var(--text);}
+.tb-time-to{font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);}
+.tb-cat-bar{width:3px;min-width:3px;}
+.tb-content{flex:1;padding:9px 11px;display:flex;flex-direction:column;gap:4px;min-width:0;}
+.tb-main{display:flex;align-items:center;gap:8px;cursor:pointer;}
+.fam-block .tb-main{cursor:default;}
+.tb-check{width:18px;height:18px;border-radius:3px;border:1.5px solid var(--dimmed);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:10px;transition:all .15s;}
+.done .tb-check{border-color:transparent;color:#000;}
+.missed .tb-check{border-color:#5a2020;background:#2a1010;color:#ff6b6b;font-size:9px;}
+.tb-text{flex:1;min-width:0;}
+.tb-title{font-size:13px;font-weight:500;color:var(--text);}
+.done .tb-title{text-decoration:line-through;color:var(--muted);}
+.tb-meta{font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);margin-top:1px;}
+.tb-actions{display:flex;gap:3px;flex-shrink:0;opacity:0;transition:opacity .15s;}
+.time-block:hover .tb-actions{opacity:1;}
+.abtn{font-family:'DM Mono',monospace;font-size:10px;padding:2px 6px;border-radius:3px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;transition:all .12s;white-space:nowrap;}
+.abtn:hover{color:var(--text);border-color:#555;}
+.abtn.miss{color:#ff6b6b;border-color:#3a1a1a;}
+.abtn.miss:hover{background:#2a1010;}
+.abtn.note-btn{color:#4e9eff;border-color:#1a3655;}
+.abtn.note-btn:hover{background:var(--ai-dim);}
+
+.note-area{padding:6px 0 4px;}
+.note-textarea{width:100%;background:#111;border:1px solid var(--border);border-radius:4px;padding:7px 9px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:12px;outline:none;transition:border .15s;resize:none;line-height:1.6;}
+.note-textarea:focus{border-color:#444;}
+.note-preview{font-size:12px;color:var(--muted);line-height:1.6;font-style:italic;padding:2px 0;cursor:pointer;}
+.note-preview:hover{color:var(--text);}
+.note-save-row{display:flex;justify-content:flex-end;gap:6px;margin-top:5px;}
+.nbtn{font-family:'DM Mono',monospace;font-size:10px;padding:3px 9px;border-radius:3px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;}
+.nbtn:hover{color:var(--text);border-color:#555;}
+.nbtn.save{border-color:#1a3655;color:var(--ai);}
+.nbtn.save:hover{background:var(--ai-dim);}
+
+.skip-banner{background:#1c1c1c;border:1px solid #2e2e2e;border-radius:var(--r);padding:12px 14px;margin-bottom:14px;}
+.skip-banner-title{font-size:10px;color:var(--skip);font-family:'DM Mono',monospace;letter-spacing:.06em;margin-bottom:3px;}
+.skip-reason{font-size:13px;color:var(--muted);font-style:italic;}
+.skip-undo{font-size:11px;color:#444;cursor:pointer;margin-top:6px;text-decoration:underline;}
+.skip-undo:hover{color:var(--text);}
+.warn-banner{display:flex;align-items:flex-start;gap:8px;background:#2a1f00;border:1px solid #5a3e00;border-radius:var(--r);padding:9px 12px;margin-bottom:10px;font-size:12px;color:var(--warn);line-height:1.5;}
+.day-skip-btn{font-family:'DM Mono',monospace;font-size:10px;padding:4px 10px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;transition:all .15s;}
+.day-skip-btn:hover{color:var(--text);border-color:#555;}
+
+.s-title{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:10px;}
+.week-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:3px;}
+.wc{aspect-ratio:1;border-radius:4px;border:1px solid var(--border);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;cursor:pointer;transition:all .12s;}
+.wc:hover{border-color:#555;}
+.wc.active{border-color:#555;background:var(--surface2);}
+.wc .wd{font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);text-transform:uppercase;}
+.wc .wp{font-family:'DM Mono',monospace;font-size:12px;font-weight:500;color:var(--dimmed);}
+.wc.g .wp{color:var(--en);}
+.wc.w .wp{color:var(--warn);}
+.wc.b .wp{color:var(--fam);}
+.wc.sk .wp{color:var(--skip);font-size:10px;}
+.cat-bars{display:flex;flex-direction:column;gap:9px;}
+.cbr{display:flex;flex-direction:column;gap:3px;}
+.cbh{display:flex;justify-content:space-between;align-items:center;}
+.cbl{font-size:11px;font-weight:500;display:flex;align-items:center;gap:5px;}
+.cbp{font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);}
+.cbt{height:4px;background:var(--border);border-radius:2px;overflow:hidden;}
+.cbf{height:100%;border-radius:2px;transition:width .5s ease;}
+.cat-dot{width:5px;height:5px;border-radius:50%;flex-shrink:0;}
+.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px;}
+.sc{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:9px 11px;}
+.sl{font-size:10px;color:var(--muted);margin-bottom:2px;}
+.sv{font-family:'DM Mono',monospace;font-size:18px;font-weight:500;color:var(--text);}
+.sv span{font-size:11px;color:var(--muted);}
+.rec{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:12px;font-size:12px;line-height:1.7;color:var(--text);}
+.rec-tag{display:inline-block;font-family:'DM Mono',monospace;font-size:10px;padding:2px 6px;border-radius:3px;margin-bottom:6px;letter-spacing:.04em;}
+
+/* Auth screen */
+.auth-screen{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:200;flex-direction:column;gap:20px;}
+.auth-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:32px;width:360px;text-align:center;}
+.auth-title{font-size:18px;font-weight:600;margin-bottom:8px;}
+.auth-sub{font-size:13px;color:var(--muted);line-height:1.7;margin-bottom:24px;}
+.auth-btn{display:inline-flex;align-items:center;gap:10px;padding:11px 22px;border-radius:8px;border:1px solid #334;background:var(--ai-dim);color:var(--ai);font-size:14px;font-weight:500;cursor:pointer;transition:all .15s;font-family:'DM Sans',sans-serif;}
+.auth-btn:hover{background:#1e4a7a;border-color:#4e9eff;}
+.auth-icon{width:20px;height:20px;}
+.auth-note{font-size:11px;color:var(--dimmed);margin-top:16px;line-height:1.6;}
+
+/* Chat */
+.chat-fab{position:fixed;bottom:24px;right:24px;width:48px;height:48px;border-radius:50%;background:var(--ai-dim);border:1px solid var(--ai);cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:50;transition:all .2s;box-shadow:0 0 20px rgba(78,158,255,.15);}
+.chat-fab:hover{background:#1e4a7a;transform:scale(1.05);}
+.chat-fab svg{width:20px;height:20px;stroke:var(--ai);fill:none;stroke-width:2;}
+.chat-popup{position:fixed;bottom:84px;right:24px;width:380px;max-width:calc(100vw - 48px);height:520px;background:var(--surface);border:1px solid var(--border);border-radius:12px;display:flex;flex-direction:column;z-index:51;transform:scale(.95) translateY(10px);opacity:0;pointer-events:none;transition:all .2s ease;}
+.chat-popup.open{transform:scale(1) translateY(0);opacity:1;pointer-events:all;}
+.chat-header{padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
+.chat-header-title{font-size:13px;font-weight:500;}
+.chat-header-sub{font-size:11px;color:var(--muted);margin-top:1px;}
+.chat-close{width:24px;height:24px;border-radius:4px;border:1px solid var(--border);background:transparent;cursor:pointer;color:var(--muted);font-size:14px;display:flex;align-items:center;justify-content:center;}
+.chat-close:hover{color:var(--text);border-color:#555;}
+.chat-msgs{flex:1;overflow-y:auto;padding:14px 14px 8px;display:flex;flex-direction:column;gap:10px;}
+.chat-msg{max-width:88%;font-size:12px;line-height:1.6;padding:9px 12px;border-radius:8px;}
+.chat-msg.user{align-self:flex-end;background:var(--ai-dim);border:1px solid #1e4a7a;color:var(--text);}
+.chat-msg.assistant{align-self:flex-start;background:var(--surface2);border:1px solid var(--border);color:var(--text);}
+.chat-msg.thinking{color:var(--muted);font-style:italic;}
+.chat-quick-btns{padding:0 14px 8px;display:flex;gap:5px;flex-wrap:wrap;}
+.qbtn{font-family:'DM Mono',monospace;font-size:10px;padding:4px 9px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;transition:all .12s;white-space:nowrap;}
+.qbtn:hover{color:var(--text);border-color:#555;}
+.chat-input-row{padding:10px 14px;border-top:1px solid var(--border);display:flex;gap:8px;align-items:flex-end;flex-shrink:0;}
+.chat-input{flex:1;background:#111;border:1px solid var(--border);border-radius:6px;padding:8px 10px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:12px;outline:none;resize:none;max-height:100px;line-height:1.5;}
+.chat-input:focus{border-color:#444;}
+.chat-send{width:32px;height:32px;border-radius:6px;background:var(--ai-dim);border:1px solid var(--ai);cursor:pointer;color:var(--ai);display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s;}
+.chat-send:hover{background:#1e4a7a;}
+.chat-send svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2.5;}
+
+/* Modals */
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:100;align-items:center;justify-content:center;}
+.modal-bg.open{display:flex;}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:22px;width:400px;max-width:92vw;max-height:85vh;overflow-y:auto;}
+.modal-title{font-size:15px;font-weight:600;margin-bottom:5px;}
+.modal-sub{font-size:12px;color:var(--muted);margin-bottom:14px;line-height:1.6;}
+.modal-btns{display:flex;gap:7px;justify-content:flex-end;margin-top:14px;}
+.mbtn{font-size:12px;padding:7px 14px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;transition:all .15s;}
+.mbtn:hover{color:var(--text);border-color:#555;}
+.mbtn.primary{border-color:#1a3655;color:var(--ai);}
+.mbtn.primary:hover{background:var(--ai-dim);}
+.mbtn.warn{border-color:#5a3e00;color:var(--warn);}
+.mbtn.warn:hover{background:#2a1f00;}
+.modal-input{width:100%;background:#111;border:1px solid var(--border);border-radius:4px;padding:8px 10px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;outline:none;resize:none;}
+.modal-input:focus{border-color:#555;}
+.vac-split-row{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+.vac-split-row label{font-size:12px;color:var(--muted);width:90px;flex-shrink:0;}
+.vac-split-row input[type=range]{flex:1;}
+.vac-split-row span{font-family:'DM Mono',monospace;font-size:12px;color:var(--text);width:36px;text-align:right;}
+.vac-note{font-size:11px;color:var(--muted);margin-top:8px;font-style:italic;}
+
+.hist-entry{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:12px;margin-bottom:7px;}
+.hist-week{font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);margin-bottom:7px;display:flex;justify-content:space-between;}
+.hist-bars{display:flex;flex-direction:column;gap:4px;}
+.hist-row{display:flex;align-items:center;gap:7px;}
+.hist-label{width:56px;font-size:10px;}
+.hist-bar{flex:1;height:4px;background:var(--border);border-radius:2px;overflow:hidden;}
+.hist-fill{height:100%;border-radius:2px;}
+.hist-pct{font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);width:26px;text-align:right;}
+
+::-webkit-scrollbar{width:3px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+@media(max-width:820px){main{grid-template-columns:1fr;height:auto;overflow:visible;}body{overflow:auto;}.day-panel{border-right:none;border-bottom:1px solid var(--border);}}
+</style>
+</head>
+<body>
+
+<!-- Auth screen -->
+<div class="auth-screen" id="authScreen">
+  <div class="auth-card">
+    <div class="auth-title">Learning Tracker</div>
+    <div class="auth-sub">Sign in with your Google account to sync your data automatically across all devices via Google Drive.</div>
+    <button class="auth-btn" onclick="signIn()">
+      <svg class="auth-icon" viewBox="0 0 24 24"><path fill="#4e9eff" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#52d68a" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#f0a04b" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#fb7185" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+      Sign in with Google
+    </button>
+    <div class="auth-note">Your data is saved to your own Google Drive folder.<br>Nothing is shared or stored on any server.</div>
+  </div>
+</div>
+
+<header>
+  <div class="logo"><span>Learning</span> Tracker</div>
+  <div class="header-right">
+    <div class="sync-status" id="syncStatus">
+      <div class="sync-dot" id="syncDot"></div>
+      <span id="syncText">not connected</span>
+    </div>
+    <div class="nav-days" id="navDays"></div>
+    <button class="hbtn vac" onclick="openVacModal()">Vacation mode</button>
+    <button class="hbtn" onclick="openHistory()">History</button>
+    <button class="hbtn" onclick="signOut()" id="signOutBtn" style="display:none">Sign out</button>
+  </div>
+</header>
+
+<main>
+  <div class="day-panel" id="dayPanel"></div>
+  <div class="sidebar">
+    <div><div class="s-title">This week</div><div class="week-grid" id="weekGrid"></div></div>
+    <div><div class="s-title">Progress by category</div><div class="cat-bars" id="catBars"></div></div>
+    <div><div class="s-title">Stats</div><div class="stat-grid" id="statGrid"></div></div>
+    <div><div class="s-title">Recommendation</div><div class="rec" id="recommendation">–</div></div>
+  </div>
+</main>
+
+<button class="chat-fab" onclick="toggleChat()">
+  <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+</button>
+<div class="chat-popup" id="chatPopup">
+  <div class="chat-header">
+    <div><div class="chat-header-title">AI Learning Assistant</div><div class="chat-header-sub">Knows your schedule &amp; notes</div></div>
+    <button class="chat-close" onclick="toggleChat()">✕</button>
+  </div>
+  <div class="chat-msgs" id="chatMsgs"></div>
+  <div class="chat-quick-btns" id="quickBtns"></div>
+  <div class="chat-input-row">
+    <textarea class="chat-input" id="chatInput" rows="1" placeholder="Ask anything…" onkeydown="chatKeydown(event)" oninput="autoResize(this)"></textarea>
+    <button class="chat-send" onclick="sendChat()"><svg viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></button>
+  </div>
+</div>
+
+<div class="modal-bg" id="skipModal">
+  <div class="modal">
+    <div class="modal-title">Skip this day</div>
+    <div class="modal-sub">Add a short note why. Skipped days are excluded from weekly stats.</div>
+    <textarea class="modal-input" id="skipReason" rows="3" placeholder="e.g. Sick day, family trip, public holiday…"></textarea>
+    <div class="modal-btns"><button class="mbtn" onclick="closeSkip()">Cancel</button><button class="mbtn warn" onclick="confirmSkip()">Skip day</button></div>
+  </div>
+</div>
+
+<div class="modal-bg" id="vacModal">
+  <div class="modal">
+    <div class="modal-title">Vacation / no-children mode</div>
+    <div class="modal-sub">Family blocks removed. Distribute freed time across categories (must total 100%).</div>
+    <div id="vacSplitRows"></div>
+    <div class="vac-note" id="vacTotal"></div>
+    <div class="modal-btns"><button class="mbtn" onclick="closeVac()">Cancel</button><button class="mbtn primary" id="vacApplyBtn" onclick="applyVac()">Apply to this day</button></div>
+  </div>
+</div>
+
+<div class="modal-bg" id="histModal">
+  <div class="modal" style="width:460px;">
+    <div class="modal-title">Week history</div>
+    <div class="modal-sub">All weeks saved in your Google Drive folder.</div>
+    <div id="histContent"><div style="color:var(--muted);font-size:12px">Loading…</div></div>
+    <div class="modal-btns"><button class="mbtn" onclick="closeHistory()">Close</button></div>
+  </div>
+</div>
+
+<script>
+// ── CONFIG ──────────────────────────────────────────────────────
+const CLIENT_ID = '584383376067-p4oadd30cutenjtahevq2q4tlr33rsft.apps.googleusercontent.com';
+const API_KEY   = 'AIzaSyCGWLRFP6dVaiynna5ionpJyNFjYv_0Bec';
+const FOLDER_ID = '1gN9pw0uxjBCUFpduIPWBODPJAPEzUPQW';
+const SCOPES    = 'https://www.googleapis.com/auth/drive.file';
+
+// ── DATA ────────────────────────────────────────────────────────
+const CATS={
+  ai:  {label:'AI learning',   color:'#4e9eff',dim:'#1a3655'},
+  en:  {label:'English',       color:'#52d68a',dim:'#193326'},
+  de:  {label:'Databricks/DE', color:'#f0a04b',dim:'#3d2910'},
+  proj:{label:'Pet project',   color:'#c084fc',dim:'#2d1a45'},
+};
+const BASE_SCHEDULE={
+  Mon:[
+    {id:'en1', cat:'en',  title:'English with AI tutor',         time:'09:00',end:'10:00'},
+    {id:'ai1', cat:'ai',  title:'AI learning — theory',          time:'10:00',end:'11:15'},
+    {id:'fam1',cat:'fam', title:'Son from school',               time:'11:15',end:'11:45'},
+    {id:'ai2', cat:'ai',  title:'AI hands-on — build',           time:'12:30',end:'14:30'},
+    {id:'de1', cat:'de',  title:'Databricks / DE',               time:'14:30',end:'15:00'},
+    {id:'fam2',cat:'fam', title:'Daughter pickup',               time:'15:00',end:'15:30'},
+    {id:'proj1',cat:'proj',title:'Pet project',                  time:'15:30',end:'16:30'},
+  ],
+  Tue:[
+    {id:'en1', cat:'en',  title:'English with AI tutor',         time:'09:00',end:'10:00'},
+    {id:'ai1', cat:'ai',  title:'AI learning — theory',          time:'10:00',end:'11:15'},
+    {id:'fam1',cat:'fam', title:'Son from school',               time:'11:15',end:'11:45'},
+    {id:'fam2',cat:'fam', title:'Daughter from kindergarten',    time:'12:00',end:'12:30'},
+    {id:'ai2', cat:'ai',  title:'AI hands-on — build',           time:'13:00',end:'14:30'},
+    {id:'de1', cat:'de',  title:'Databricks / DE',               time:'14:45',end:'15:45'},
+    {id:'proj1',cat:'proj',title:'Pet project',                  time:'15:45',end:'16:45'},
+  ],
+  Wed:[
+    {id:'en1', cat:'en',  title:'English with AI tutor',         time:'09:00',end:'10:00'},
+    {id:'ai1', cat:'ai',  title:'AI learning — theory',          time:'10:00',end:'11:15'},
+    {id:'fam1',cat:'fam', title:'Son from school',               time:'11:15',end:'11:45'},
+    {id:'fam2',cat:'fam', title:'Daughter from kindergarten',    time:'12:00',end:'12:30'},
+    {id:'ai2', cat:'ai',  title:'AI hands-on — build',           time:'13:15',end:'14:45'},
+    {id:'de1', cat:'de',  title:'Databricks / DE',               time:'15:00',end:'16:00'},
+    {id:'proj1',cat:'proj',title:'Pet project',                  time:'16:00',end:'17:00'},
+  ],
+  Thu:[
+    {id:'en1', cat:'en',  title:'English with AI tutor',         time:'09:00',end:'10:00'},
+    {id:'ai1', cat:'ai',  title:'AI learning — theory',          time:'10:00',end:'11:15'},
+    {id:'fam1',cat:'fam', title:'Son from school',               time:'11:15',end:'11:45'},
+    {id:'ai2', cat:'ai',  title:'AI hands-on — build',           time:'12:30',end:'14:30'},
+    {id:'de1', cat:'de',  title:'Databricks / DE',               time:'14:30',end:'15:00'},
+    {id:'fam2',cat:'fam', title:'Daughter pickup',               time:'15:00',end:'15:30'},
+    {id:'proj1',cat:'proj',title:'Pet project',                  time:'15:30',end:'16:30'},
+  ],
+  Fri:[
+    {id:'en1', cat:'en',  title:'English with AI tutor',         time:'09:00',end:'10:00'},
+    {id:'ai1', cat:'ai',  title:'Weekly AI review',              time:'10:00',end:'11:15'},
+    {id:'fam1',cat:'fam', title:'Son from school',               time:'11:15',end:'11:45'},
+    {id:'ai2', cat:'ai',  title:'AI project — week demo',        time:'12:30',end:'13:30'},
+    {id:'de1', cat:'de',  title:'DE weekly review',              time:'13:30',end:'14:15'},
+    {id:'fam2',cat:'fam', title:'Daughter pickup',               time:'14:15',end:'15:00'},
+    {id:'proj1',cat:'proj',title:'Pet project — Friday feature', time:'15:00',end:'16:00'},
+  ],
+};
+const DAYS=['Mon','Tue','Wed','Thu','Fri'];
+
+// ── STATE ───────────────────────────────────────────────────────
+let accessToken=null;
+let weekData={};  // in-memory store for current week
+let driveFileId=null; // Drive file ID for current week
+let syncTimer=null;
+let syncPending=false;
+let currentDay=DAYS.includes(todayName())?todayName():'Mon';
+let openNotes={};
+let vacSplits={ai:40,en:20,de:20,proj:20};
+let chatHistory=[];
+let chatOpen=false;
+
+// ── HELPERS ─────────────────────────────────────────────────────
+function getWeekId(){const d=new Date(),j=new Date(d.getFullYear(),0,1);return`${d.getFullYear()}_W${String(Math.ceil(((d-j)/86400000+j.getDay()+1)/7)).padStart(2,'0')}`;}
+function todayName(){return['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][new Date().getDay()];}
+function dateForDay(day){
+  const t=new Date(),ti=t.getDay(),names=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const d=new Date(t);d.setDate(d.getDate()+names.indexOf(day)-ti);
+  return d.toLocaleDateString('en-GB',{day:'numeric',month:'short'});
+}
+function timeMins(t){const[h,m]=t.split(':').map(Number);return h*60+m;}
+function minsToTime(m){return`${String(Math.floor(m/60)).padStart(2,'0')}:${String(m%60).padStart(2,'0')}`;}
+function durStr(from,to){const m=timeMins(to)-timeMins(from);return m>=60?`${Math.floor(m/60)}h${m%60?` ${m%60}m`:''}`:`${m}m`;}
+function getSchedule(day){return(weekData[day]||{}).__schedule||BASE_SCHEDULE[day];}
+function getDayData(day){return weekData[day]||{};}
+function setDayData(day,data){weekData[day]=data;scheduleSave();}
+
+// ── GOOGLE AUTH ─────────────────────────────────────────────────
+function signIn(){
+  const client=google.accounts.oauth2.initTokenClient({
+    client_id:CLIENT_ID,
+    scope:SCOPES,
+    callback:(resp)=>{
+      if(resp.error)return;
+      accessToken=resp.access_token;
+      onSignedIn();
+    }
+  });
+  client.requestAccessToken();
+}
+
+function signOut(){
+  google.accounts.oauth2.revoke(accessToken,()=>{});
+  accessToken=null;
+  document.getElementById('authScreen').style.display='flex';
+  document.getElementById('signOutBtn').style.display='none';
+  setSyncStatus('disconnected');
+}
+
+async function onSignedIn(){
+  document.getElementById('authScreen').style.display='none';
+  document.getElementById('signOutBtn').style.display='inline-block';
+  setSyncStatus('syncing','connecting…');
+  await loadWeekFromDrive();
+  render();
+}
+
+// ── DRIVE SYNC ──────────────────────────────────────────────────
+function setSyncStatus(state,msg){
+  const dot=document.getElementById('syncDot');
+  const txt=document.getElementById('syncText');
+  dot.className='sync-dot';
+  if(state==='connected'){dot.classList.add('connected');txt.textContent=msg||'synced';}
+  else if(state==='syncing'){dot.classList.add('syncing');txt.textContent=msg||'saving…';}
+  else if(state==='error'){dot.classList.add('error');txt.textContent=msg||'error';}
+  else{txt.textContent=msg||'not connected';}
+}
+
+function driveFileName(){return`tracker-${getWeekId()}.json`;}
+
+async function findDriveFile(name){
+  const q=encodeURIComponent(`name='${name}' and '${FOLDER_ID}' in parents and trashed=false`);
+  const r=await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name)`,{
+    headers:{Authorization:`Bearer ${accessToken}`}
+  });
+  const d=await r.json();
+  return d.files&&d.files.length>0?d.files[0]:null;
+}
+
+async function loadWeekFromDrive(){
+  try{
+    const file=await findDriveFile(driveFileName());
+    if(file){
+      driveFileId=file.id;
+      const r=await fetch(`https://www.googleapis.com/drive/v3/files/${file.id}?alt=media`,{
+        headers:{Authorization:`Bearer ${accessToken}`}
+      });
+      weekData=await r.json();
+      setSyncStatus('connected',`synced · ${driveFileName()}`);
+    } else {
+      driveFileId=null;
+      weekData={};
+      setSyncStatus('connected','new week');
+    }
+  }catch(e){
+    setSyncStatus('error','load failed');
+    console.error(e);
+  }
+}
+
+async function saveWeekToDrive(){
+  if(!accessToken){return;}
+  setSyncStatus('syncing','saving…');
+  try{
+    const body=JSON.stringify(weekData);
+    const blob=new Blob([body],{type:'application/json'});
+    if(driveFileId){
+      // Update existing file (overwrite)
+      await fetch(`https://www.googleapis.com/upload/drive/v3/files/${driveFileId}?uploadType=media`,{
+        method:'PATCH',
+        headers:{Authorization:`Bearer ${accessToken}`,'Content-Type':'application/json'},
+        body
+      });
+    } else {
+      // Create new file in the folder
+      const meta={name:driveFileName(),parents:[FOLDER_ID]};
+      const form=new FormData();
+      form.append('metadata',new Blob([JSON.stringify(meta)],{type:'application/json'}));
+      form.append('file',blob);
+      const r=await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id',{
+        method:'POST',
+        headers:{Authorization:`Bearer ${accessToken}`},
+        body:form
+      });
+      const d=await r.json();
+      driveFileId=d.id;
+    }
+    const t=new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+    setSyncStatus('connected',`saved ${t}`);
+  }catch(e){
+    setSyncStatus('error','save failed');
+    console.error(e);
+  }
+}
+
+function scheduleSave(){
+  // Debounce: wait 1.5s after last change then save
+  clearTimeout(syncTimer);
+  setSyncStatus('syncing','saving…');
+  syncTimer=setTimeout(()=>saveWeekToDrive(),1500);
+}
+
+// Load all week files from Drive for history
+async function loadAllWeeksFromDrive(){
+  try{
+    const q=encodeURIComponent(`name contains 'tracker-' and '${FOLDER_ID}' in parents and trashed=false`);
+    const r=await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name)&orderBy=name desc`,{
+      headers:{Authorization:`Bearer ${accessToken}`}
+    });
+    const d=await r.json();
+    const files=d.files||[];
+    const results=[];
+    for(const f of files){
+      const r2=await fetch(`https://www.googleapis.com/drive/v3/files/${f.id}?alt=media`,{
+        headers:{Authorization:`Bearer ${accessToken}`}
+      });
+      const data=await r2.json();
+      results.push({weekId:f.name.replace('tracker-','').replace('.json',''),data});
+    }
+    return results;
+  }catch(e){console.error(e);return[];}
+}
+
+// ── BLOCK ACTIONS ───────────────────────────────────────────────
+function markBlock(id,state){const d=getDayData(currentDay);d[id]=d[id]===state?'none':state;setDayData(currentDay,d);render();}
+function markNone(id){const d=getDayData(currentDay);d[id]='none';setDayData(currentDay,d);render();}
+function saveNote(id){
+  const ta=document.getElementById('note_'+id);if(!ta)return;
+  const d=getDayData(currentDay);d['note_'+id]=ta.value.trim();setDayData(currentDay,d);
+  openNotes[id]=false;render();
+}
+function toggleNote(id){openNotes[id]=!openNotes[id];render();}
+
+// Skip
+function openSkip(){document.getElementById('skipModal').classList.add('open');setTimeout(()=>document.getElementById('skipReason').focus(),100);}
+function closeSkip(){document.getElementById('skipModal').classList.remove('open');}
+function confirmSkip(){
+  const reason=document.getElementById('skipReason').value.trim()||'No reason given';
+  const d=getDayData(currentDay);d['_skip']={skipped:true,reason};setDayData(currentDay,d);closeSkip();render();
+}
+function undoSkip(){const d=getDayData(currentDay);delete d['_skip'];setDayData(currentDay,d);render();}
+
+function consecMisses(cat){
+  let s=0;
+  for(let i=DAYS.indexOf(currentDay)-1;i>=0;i--){
+    const d=getDayData(DAYS[i]);
+    if(d['_skip']?.skipped){s++;continue;}
+    const blocks=getSchedule(DAYS[i]).filter(b=>b.cat===cat);
+    if(blocks.some(b=>d[b.id]==='missed')&&!blocks.some(b=>d[b.id]==='done'))s++;else break;
+  }
+  return s;
+}
+
+// Vacation mode
+function openVacModal(){
+  const famBlocks=BASE_SCHEDULE[currentDay].filter(b=>b.cat==='fam');
+  const freed=famBlocks.reduce((s,b)=>s+timeMins(b.end)-timeMins(b.time),0);
+  let html='';
+  Object.entries(CATS).forEach(([cat,info])=>{
+    html+=`<div class="vac-split-row">
+      <label style="color:${info.color}">${info.label}</label>
+      <input type="range" min="0" max="100" step="5" value="${vacSplits[cat]}" id="vs_${cat}" oninput="updateVacTotal()">
+      <span id="vsp_${cat}">${vacSplits[cat]}%</span>
+    </div>`;
+  });
+  html+=`<div style="font-size:11px;color:var(--muted);margin-top:6px">Freed time: <strong style="color:var(--text)">${Math.floor(freed/60)}h ${freed%60?freed%60+'m':''}</strong></div>`;
+  document.getElementById('vacSplitRows').innerHTML=html;
+  updateVacTotal();
+  document.getElementById('vacModal').classList.add('open');
+}
+function updateVacTotal(){
+  let total=0;
+  Object.keys(CATS).forEach(cat=>{const el=document.getElementById('vs_'+cat);if(el){const v=parseInt(el.value);vacSplits[cat]=v;total+=v;document.getElementById('vsp_'+cat).textContent=v+'%';}});
+  const note=document.getElementById('vacTotal'),btn=document.getElementById('vacApplyBtn');
+  if(total!==100){note.textContent=`Total: ${total}% — must equal 100%`;note.style.color='var(--warn)';btn.disabled=true;}
+  else{note.textContent='Total: 100% ✓';note.style.color='var(--en)';btn.disabled=false;}
+}
+function closeVac(){document.getElementById('vacModal').classList.remove('open');}
+function applyVac(){
+  const base=BASE_SCHEDULE[currentDay];
+  const famMins=base.filter(b=>b.cat==='fam').reduce((s,b)=>s+timeMins(b.end)-timeMins(b.time),0);
+  const learning=base.filter(b=>b.cat!=='fam');
+  const catDurs={ai:0,en:0,de:0,proj:0};
+  learning.forEach(b=>{if(catDurs[b.cat]!==undefined)catDurs[b.cat]+=timeMins(b.end)-timeMins(b.time);});
+  Object.keys(CATS).forEach(cat=>{catDurs[cat]+=Math.round(famMins*(vacSplits[cat]/100));});
+  const newSched=[];let cursor=timeMins('09:00');
+  ['en','ai','de','proj'].forEach(cat=>{
+    const orig=learning.filter(b=>b.cat===cat);
+    if(!orig.length||!catDurs[cat])return;
+    const per=Math.round(catDurs[cat]/orig.length/5)*5;
+    orig.forEach(b=>{newSched.push({...b,time:minsToTime(cursor),end:minsToTime(cursor+per)});cursor+=per+15;});
+  });
+  const d=getDayData(currentDay);d.__schedule=newSched;d.__vacMode=true;setDayData(currentDay,d);closeVac();render();
+}
+function resetVac(){const d=getDayData(currentDay);delete d.__schedule;delete d.__vacMode;setDayData(currentDay,d);render();}
+
+// ── AI CHAT ─────────────────────────────────────────────────────
+function getAllNotes(){
+  const notes=[];
+  DAYS.forEach(day=>{
+    const data=getDayData(day);
+    getSchedule(day).filter(b=>b.cat!=='fam').forEach(b=>{
+      const n=data['note_'+b.id];
+      if(n)notes.push({day,block:b.title,cat:b.cat,note:n});
+    });
+  });
+  return notes;
+}
+function buildContext(){
+  const notes=getAllNotes();
+  const weekStats=Object.keys(CATS).map(cat=>{
+    let t=0,d=0;
+    DAYS.forEach(day=>{const data=getDayData(day);if(data['_skip']?.skipped)return;getSchedule(day).filter(b=>b.cat===cat).forEach(b=>{t++;if(data[b.id]==='done')d++;});});
+    return`${CATS[cat].label}: ${t?Math.round(d/t*100):0}%`;
+  }).join(', ');
+  const notesText=notes.length?notes.map(n=>`[${n.day} - ${n.block}]: ${n.note}`).join('\n'):'No notes yet.';
+  return`You are a learning assistant for a BI support specialist in Hungary transitioning to AI/Data Engineering.
+Current day: ${currentDay}. Week: ${getWeekId()}.
+Completion this week: ${weekStats}
+Learning notes:\n${notesText}
+Categories: English (daily 1h, AI tutor), AI learning (theory + hands-on Python/LLM), Databricks/DE (PySpark, Delta Lake, MLflow), Pet project (Hungarian football app).
+Background: 4 years BI/data replication, HCLTech, Databricks experience. Goal: become relevant in AI+DE. At risk of being let go in coming months.
+Be encouraging, specific, concise (3-5 sentences). Suggest concrete resources/topics when relevant.`;
+}
+function toggleChat(){
+  chatOpen=!chatOpen;
+  document.getElementById('chatPopup').classList.toggle('open',chatOpen);
+  if(chatOpen&&chatHistory.length===0){
+    addChatMsg('assistant','Hi! I can see your schedule and notes. Ask me to plan tomorrow, suggest what to study next, or review your week.');
+    renderQuickBtns();
+  }
+}
+function renderQuickBtns(){
+  const btns=[
+    {label:'Plan tomorrow',msg:'Based on my notes and progress, what should I focus on tomorrow? Give a specific plan for each block.'},
+    {label:'Next AI topic',msg:'What specific AI topic should I study next based on where I am?'},
+    {label:'Next DE topic',msg:'What Databricks or DE topic should I focus on next?'},
+    {label:'Weekly review',msg:'Review my week — what went well, what I missed, what needs attention next week?'},
+  ];
+  document.getElementById('quickBtns').innerHTML=btns.map(b=>`<button class="qbtn" onclick="sendQuick('${b.msg.replace(/'/g,"&#39;")}')">${b.label}</button>`).join('');
+}
+function addChatMsg(role,text){
+  const msgs=document.getElementById('chatMsgs');
+  const div=document.createElement('div');div.className=`chat-msg ${role}`;div.textContent=text;
+  msgs.appendChild(div);msgs.scrollTop=msgs.scrollHeight;return div;
+}
+async function sendQuick(msg){document.getElementById('chatInput').value=msg;await sendChat();}
+async function sendChat(){
+  const inp=document.getElementById('chatInput');const text=inp.value.trim();if(!text)return;
+  inp.value='';inp.style.height='auto';
+  addChatMsg('user',text);chatHistory.push({role:'user',content:text});
+  const thinking=addChatMsg('assistant','…');thinking.classList.add('thinking');
+  try{
+    const res=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,system:buildContext(),messages:chatHistory})
+    });
+    const data=await res.json();
+    const reply=data.content?.find(c=>c.type==='text')?.text||'No response.';
+    thinking.textContent=reply;thinking.classList.remove('thinking');
+    chatHistory.push({role:'assistant',content:reply});
+    if(chatHistory.length>20)chatHistory=chatHistory.slice(-20);
+  }catch(e){thinking.textContent='Could not connect.';thinking.classList.remove('thinking');}
+  renderQuickBtns();
+}
+function chatKeydown(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendChat();}}
+function autoResize(el){el.style.height='auto';el.style.height=Math.min(el.scrollHeight,100)+'px';}
+
+// ── RENDER ───────────────────────────────────────────────────────
+function renderNav(){
+  const nav=document.getElementById('navDays');nav.innerHTML='';
+  const today=todayName();
+  DAYS.forEach(d=>{
+    const data=getDayData(d);
+    const isSkip=data['_skip']?.skipped;
+    const hasMiss=!isSkip&&getSchedule(d).filter(b=>b.cat!=='fam').some(b=>data[b.id]==='missed');
+    const btn=document.createElement('button');
+    btn.className='nav-day'+(d===currentDay?' active':'')+(hasMiss?' has-warn':'')+(isSkip?' is-skip':'')+(d===today?' is-today':'');
+    btn.textContent=d;btn.onclick=()=>{currentDay=d;openNotes={};render();};
+    nav.appendChild(btn);
+  });
+}
+
+function renderDay(){
+  const panel=document.getElementById('dayPanel');
+  const data=getDayData(currentDay);
+  const isSkip=data['_skip']?.skipped,isVac=data.__vacMode;
+  const sched=getSchedule(currentDay);
+  const trackable=sched.filter(b=>b.cat!=='fam');
+  const done=trackable.filter(b=>data[b.id]==='done').length;
+  const pct=trackable.length?Math.round(done/trackable.length*100):0;
+  const isToday=currentDay===todayName();
+
+  let warns='';
+  if(!isSkip)Object.keys(CATS).forEach(cat=>{const s=consecMisses(cat);if(s>=2)warns+=`<div class="warn-banner">⚠ <div><strong>${CATS[cat].label}</strong> missed ${s} days in a row.</div></div>`;});
+
+  let topRow=`<div class="day-header">
+    <div class="day-title-row">
+      <div class="day-title">${isToday?'Today — ':''}${currentDay}</div>
+      <div class="day-date">${dateForDay(currentDay)}${isVac?' · vacation':''} · ${isSkip?'skipped':`${done}/${trackable.length} done`}</div>
+    </div>
+    <div style="display:flex;gap:6px">
+      ${isVac?`<button class="day-skip-btn" onclick="resetVac()">Reset schedule</button>`:''}
+      ${!isSkip?`<button class="day-skip-btn" onclick="openSkip()">Skip day…</button>`:''}
+    </div>
+  </div>
+  <div class="day-prog-bar"><div class="day-prog-fill" style="width:${isSkip?0:pct}%;background:${pct>=80?'var(--en)':pct>=50?'var(--warn)':'var(--ai)'}"></div></div>`;
+
+  let skipHtml='';
+  if(isSkip)skipHtml=`<div class="skip-banner"><div class="skip-banner-title">DAY SKIPPED</div><div class="skip-reason">${data['_skip'].reason}</div><div class="skip-undo" onclick="undoSkip()">Undo skip</div></div>`;
+
+  let blocksHtml='';
+  sched.forEach(b=>{
+    const isFam=b.cat==='fam';
+    const state=data[b.id]||'none';
+    const isDone=state==='done',isMissed=state==='missed';
+    const hasNote=!!data['note_'+b.id];
+    const noteOpen=openNotes[b.id];
+    const catColor=isFam?'var(--fam)':CATS[b.cat]?.color||'#888';
+    const dur=durStr(b.time,b.end);
+
+    if(isFam){
+      blocksHtml+=`<div class="time-block fam-block">
+        <div class="tb-time"><div class="tb-time-from">${b.time}</div><div class="tb-time-to">${b.end}</div></div>
+        <div class="tb-cat-bar" style="background:#3d1520"></div>
+        <div class="tb-content"><div class="tb-main"><div class="tb-text">
+          <div class="tb-title" style="color:var(--muted);font-size:12px">${b.title}</div>
+          <div class="tb-meta">${dur}</div>
+        </div></div></div>
+      </div>`;return;
+    }
+    if(isSkip){
+      blocksHtml+=`<div class="time-block" style="opacity:.2;pointer-events:none">
+        <div class="tb-time"><div class="tb-time-from">${b.time}</div><div class="tb-time-to">${b.end}</div></div>
+        <div class="tb-cat-bar" style="background:${catColor}22"></div>
+        <div class="tb-content"><div class="tb-main"><div class="tb-text"><div class="tb-title">${b.title}</div></div></div></div>
+      </div>`;return;
+    }
+    const checkMark=isDone?'✓':isMissed?'✕':'';
+    const checkStyle=isDone?`background:${catColor};border-color:${catColor};color:#000`:isMissed?'background:#2a1010;border-color:#5a2020;color:#ff6b6b':'';
+    const catBarColor=isDone?catColor:isMissed?'#3a1010':`${catColor}44`;
+    let noteHtml='';
+    if(noteOpen){
+      noteHtml=`<div class="note-area">
+        <textarea class="note-textarea" id="note_${b.id}" rows="3" placeholder="What did you learn? What was hard? What to continue…">${data['note_'+b.id]||''}</textarea>
+        <div class="note-save-row">
+          <button class="nbtn" onclick="openNotes['${b.id}']=false;render()">Cancel</button>
+          <button class="nbtn save" onclick="saveNote('${b.id}')">Save note</button>
+        </div>
+      </div>`;
+    } else if(hasNote){
+      noteHtml=`<div class="note-preview" onclick="toggleNote('${b.id}')">${data['note_'+b.id]}</div>`;
+    }
+    blocksHtml+=`<div class="time-block${isDone?' done':''}${isMissed?' missed':''}${hasNote?' has-note':''}">
+      <div class="tb-time"><div class="tb-time-from">${b.time}</div><div class="tb-time-to">${b.end}</div></div>
+      <div class="tb-cat-bar" style="background:${catBarColor}"></div>
+      <div class="tb-content">
+        <div class="tb-main" onclick="markBlock('${b.id}','done')">
+          <div class="tb-check" style="${checkStyle}">${checkMark}</div>
+          <div class="tb-text">
+            <div class="tb-title">${b.title}</div>
+            <div class="tb-meta">${dur} · <span style="color:${catColor};font-size:10px">${CATS[b.cat].label}</span>${hasNote&&!noteOpen?` · <span style="color:var(--ai);font-size:10px">note ✓</span>`:''}</div>
+          </div>
+          <div class="tb-actions">
+            ${!isDone?`<button class="abtn" onclick="event.stopPropagation();markBlock('${b.id}','done')">done</button>`:''}
+            ${!isMissed?`<button class="abtn miss" onclick="event.stopPropagation();markBlock('${b.id}','missed')">missed</button>`:''}
+            ${(isDone||isMissed)?`<button class="abtn" onclick="event.stopPropagation();markNone('${b.id}')">undo</button>`:''}
+            <button class="abtn note-btn" onclick="event.stopPropagation();toggleNote('${b.id}')">${noteOpen?'close':hasNote?'edit note':'+ note'}</button>
+          </div>
+        </div>
+        ${noteHtml}
+      </div>
+    </div>`;
+  });
+  panel.innerHTML=topRow+warns+skipHtml+blocksHtml;
+}
+
+function renderWeekGrid(){
+  const grid=document.getElementById('weekGrid');grid.innerHTML='';
+  DAYS.forEach(d=>{
+    const data=getDayData(d);
+    const isSkip=data['_skip']?.skipped;
+    const trackable=getSchedule(d).filter(b=>b.cat!=='fam');
+    const done=trackable.filter(b=>data[b.id]==='done').length;
+    const pct=trackable.length?Math.round(done/trackable.length*100):0;
+    const isEmpty=!isSkip&&done===0&&!trackable.some(b=>data[b.id]==='missed');
+    const cls=isSkip?'sk':isEmpty?'':pct>=80?'g':pct>=50?'w':'b';
+    const cell=document.createElement('div');
+    cell.className=`wc ${cls}${d===currentDay?' active':''}`;
+    cell.innerHTML=`<div class="wd">${d}</div><div class="wp">${isSkip?'skip':isEmpty?'—':pct+'%'}</div>`;
+    cell.onclick=()=>{currentDay=d;openNotes={};render();};
+    grid.appendChild(cell);
+  });
+}
+
+function renderCatBars(){
+  const c=document.getElementById('catBars');let html='';
+  Object.entries(CATS).forEach(([cat,info])=>{
+    let t=0,d=0;
+    DAYS.forEach(day=>{const data=getDayData(day);if(data['_skip']?.skipped)return;getSchedule(day).filter(b=>b.cat===cat).forEach(b=>{t++;if(data[b.id]==='done')d++;});});
+    const pct=t?Math.round(d/t*100):0;
+    html+=`<div class="cbr"><div class="cbh"><div class="cbl"><div class="cat-dot" style="background:${info.color}"></div>${info.label}</div><div class="cbp">${d}/${t} ${pct}%</div></div><div class="cbt"><div class="cbf" style="width:${pct}%;background:${info.color}"></div></div></div>`;
+  });
+  c.innerHTML=html;
+}
+
+function renderStats(){
+  let td=0,tm=0,tb=0,streak=0;
+  DAYS.forEach(d=>{const data=getDayData(d);if(data['_skip']?.skipped)return;const tr=getSchedule(d).filter(b=>b.cat!=='fam');tb+=tr.length;td+=tr.filter(b=>data[b.id]==='done').length;tm+=tr.filter(b=>data[b.id]==='missed').length;});
+  for(let i=DAYS.indexOf(currentDay);i>=0;i--){const d=getDayData(DAYS[i]);if(d['_skip']?.skipped)continue;if(getSchedule(DAYS[i]).filter(b=>b.cat!=='fam').some(b=>d[b.id]==='done'))streak++;else break;}
+  const nc=getAllNotes().length,pct=tb?Math.round(td/tb*100):0;
+  document.getElementById('statGrid').innerHTML=`
+    <div class="sc"><div class="sl">Week completion</div><div class="sv">${pct}<span>%</span></div></div>
+    <div class="sc"><div class="sl">Blocks done</div><div class="sv">${td}<span>/${tb}</span></div></div>
+    <div class="sc"><div class="sl">Missed blocks</div><div class="sv" style="color:${tm>3?'#fb7185':'inherit'}">${tm}</div></div>
+    <div class="sc"><div class="sl">Notes written</div><div class="sv">${nc}</div></div>`;
+}
+
+function renderRecommendation(){
+  const scores={};
+  Object.keys(CATS).forEach(cat=>{let t=0,d=0;DAYS.forEach(day=>{const data=getDayData(day);if(data['_skip']?.skipped)return;getSchedule(day).filter(b=>b.cat===cat).forEach(b=>{t++;if(data[b.id]==='done')d++;});});if(t>0)scores[cat]=d/t;});
+  const el=document.getElementById('recommendation');
+  const scored=Object.entries(scores).sort((a,b)=>a[1]-b[1]);
+  if(!scored.length){el.innerHTML='Sign in and mark your first block to get a recommendation.';return;}
+  const [wc,wv]=scored[0];const [bc,bv]=scored[scored.length-1];
+  const wp=Math.round(wv*100),bp=Math.round(bv*100);
+  const wi=CATS[wc],bi=CATS[bc];
+  const hasNotes=getAllNotes().length>0;
+  const extra=hasNotes?' Open the AI chat for a personalised plan.':' Add notes to completed blocks for AI suggestions.';
+  let text='';
+  if(wp<40)text=`<div class="rec-tag" style="background:${wi.dim};color:${wi.color}">needs attention</div><br><strong>${wi.label}</strong> is at ${wp}% — protect that block tomorrow.${extra}`;
+  else if(wp<70)text=`<div class="rec-tag" style="background:#2a1f00;color:var(--warn)">on track</div><br><strong>${wi.label}</strong> slightly behind at ${wp}%. <strong>${bi.label}</strong> leads at ${bp}%.${extra}`;
+  else text=`<div class="rec-tag" style="background:var(--en-dim);color:var(--en)">strong week</div><br>Excellent consistency. <strong>${bi.label}</strong> at ${bp}%. Compounding starts around week 4.${extra}`;
+  el.innerHTML=text;
+}
+
+async function openHistory(){
+  document.getElementById('histModal').classList.add('open');
+  document.getElementById('histContent').innerHTML='<div style="color:var(--muted);font-size:12px;padding:8px 0">Loading from Drive…</div>';
+  const weeks=await loadAllWeeksFromDrive();
+  if(!weeks.length){document.getElementById('histContent').innerHTML='<div style="color:var(--muted);font-size:12px;padding:8px 0">No weeks saved yet.</div>';return;}
+  let html='';
+  weeks.forEach(({weekId,data})=>{
+    const catScores={};
+    Object.keys(CATS).forEach(cat=>{
+      let t=0,d=0;
+      DAYS.forEach(day=>{const dd=data[day]||{};if(dd['_skip']?.skipped)return;const sched=dd.__schedule||BASE_SCHEDULE[day]||[];sched.filter(b=>b.cat===cat).forEach(b=>{t++;if(dd[b.id]==='done')d++;});});
+      catScores[cat]=t?Math.round(d/t*100):0;
+    });
+    const skipped=DAYS.filter(d=>(data[d]||{})['_skip']?.skipped).length;
+    const nc=DAYS.reduce((s,d)=>{const dd=data[d]||{};return s+Object.keys(dd).filter(k=>k.startsWith('note_')&&dd[k]).length;},0);
+    html+=`<div class="hist-entry">
+      <div class="hist-week"><span>${weekId}</span><span style="color:var(--dimmed)">${skipped?`${skipped} skipped · `:''}${nc} note${nc!==1?'s':''}</span></div>
+      <div class="hist-bars">${Object.entries(catScores).map(([cat,pct])=>`
+        <div class="hist-row"><div class="hist-label" style="color:${CATS[cat].color}">${CATS[cat].label.split('/')[0].trim()}</div>
+        <div class="hist-bar"><div class="hist-fill" style="width:${pct}%;background:${CATS[cat].color}"></div></div>
+        <div class="hist-pct">${pct}%</div></div>`).join('')}
+      </div>
+    </div>`;
+  });
+  document.getElementById('histContent').innerHTML=html;
+}
+function closeHistory(){document.getElementById('histModal').classList.remove('open');}
+
+['histModal','skipModal','vacModal'].forEach(id=>{
+  document.getElementById(id).addEventListener('click',e=>{if(e.target===e.currentTarget)document.getElementById(id).classList.remove('open');});
+});
+
+function render(){renderNav();renderDay();renderWeekGrid();renderCatBars();renderStats();renderRecommendation();}
+render();
+</script>
+</body>
+</html>
